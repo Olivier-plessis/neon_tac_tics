@@ -32,7 +32,7 @@ if [[ ! "$versionType" =~ ^(major|minor|patch|build)$ ]]; then
 fi
 
 # --- Extraction de la version actuelle ---
-PUBSPEC_PATH="./apps/kipito/pubspec.yaml" # Chemin vers pubspec.yaml
+PUBSPEC_PATH="pubspec.yaml" # Chemin vers pubspec.yaml
 
 # Vérifie si le fichier pubspec.yaml existe
 if [ ! -f "$PUBSPEC_PATH" ]; then
