@@ -78,13 +78,7 @@ elif [ "$versionType" == "patch" ]; then
 fi
 
 # Génération du nouveau numéro de build au format AAAAMMJJHHMMSS (plus lisible et unique)
-# Ou utiliser un simple incrément si vous préférez un numéro séquentiel
-# Pour un build number basé sur la date et l'heure:
 new_build=$(date +%Y%m%d%H%M%S)
-
-# Pour un build number incrémental (si vous le stockez quelque part ou le calculez différemment)
-# Si vous voulez incrémenter le build number existant, il faut s'assurer qu'il est numérique.
-# new_build=$((build_number + 1)) # Ceci est une option, mais demande une gestion plus fine
 
 # Assemble la nouvelle version complète
 new_full_version="${new_major}.${new_minor}.${new_patch}+${new_build}"
@@ -94,21 +88,29 @@ echo "Nouvelle version: $new_full_version"
 
 # --- Mise à jour du fichier pubspec.yaml ---
 
-# Utilisation de `sed` pour la mise à jour (compatible GNU sed et BSD sed avec différentes syntaxes)
+# Utilisation de `sed` pour la mise à jour
 # On préfère 'gsed' pour Linux/macOS si installé via Homebrew pour être sûr
-# Si gsed n'est pas disponible, un sed standard peut être utilisé mais peut nécessiter des ajustements
+# Si gsed n'est pas disponible, un sed standard (BSD sed sur macOS) est utilisé
+# BSD sed nécessite une extension après -i, même vide ('')
 if command -v gsed &> /dev/null; then
     sed_cmd="gsed"
+    echo "Utilisation de gsed."
 else
     sed_cmd="sed"
+    echo "Utilisation de sed (potentiellement BSD sed, nécessitera -i '')."
 fi
 
 echo "Mise à jour de $PUBSPEC_PATH avec la nouvelle version..."
-# Le 's' est pour substituer, le premier '/' est le séparateur, 'version:' est le motif à chercher,
-# 'version: $new_full_version' est le remplacement, et 'g' pour remplacer toutes les occurrences (au cas où).
-"$sed_cmd" -i "s/^version: .*/version: $new_full_version/" "$PUBSPEC_PATH"
 
-# Vérifie si la modification a réussi (facultatif mais recommandé)
+# Si sed_cmd est "sed" (BSD sed), ajoutez l'argument d'extension pour -i
+if [ "$sed_cmd" == "sed" ]; then
+    "$sed_cmd" -i '' "s/^version: .*/version: $new_full_version/" "$PUBSPEC_PATH"
+else
+    "$sed_cmd" -i "s/^version: .*/version: $new_full_version/" "$PUBSPEC_PATH"
+fi
+
+
+# Vérifie si la modification a réussi
 if ! grep -q "version: $new_full_version" "$PUBSPEC_PATH"; then
     echo "Erreur: La mise à jour de la version dans pubspec.yaml a échoué."
     exit 1
@@ -118,26 +120,46 @@ echo "La version a été mise à jour dans $PUBSPEC_PATH."
 
 # --- Opérations Git ---
 
-# S'assurer que les changements sont prêts à être committés
+# Récupère la branche actuelle
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+# Nom de la nouvelle branche de release
+release_branch_name="release/v${new_full_version%%+*}" # Utilisez la version sans le build number pour le nom de la branche
+
 echo "Ajout des modifications Git..."
 git add "$PUBSPEC_PATH" # N'ajoute que le fichier modifié
 
 # Vérifie s'il y a des modifications à committer avant de créer le commit
 if git diff --cached --quiet; then
     echo "Aucune modification à committer pour pubspec.yaml."
-else
-    echo "Création du commit Git..."
-    git commit -m "ci: Bump $versionType version from $current_version to $new_full_version"
-    echo "Pousser le commit vers l'origine..."
-    git push
-
-    # Création et push du tag
-    new_tag="v$new_full_version"
-    echo "Création du tag Git: $new_tag"
-    git tag "$new_tag"
-
-    echo "Pousser le tag vers l'origine..."
-    git push origin "$new_tag"
+    echo "Le script a terminé, mais aucune action Git n'a été effectuée car il n'y avait pas de changement."
+    exit 0 # Quitte si rien n'a été modifié
 fi
+
+echo "Création de la branche de release: $release_branch_name"
+git checkout -b "$release_branch_name" "$current_branch" # Crée et passe à la nouvelle branche basée sur la branche actuelle
+
+echo "Création du commit Git sur la branche $release_branch_name..."
+git commit -m "ci: Bump $versionType version to $new_full_version for release"
+
+echo "Pousser la nouvelle branche de release vers l'origine..."
+git push -u origin "$release_branch_name" # Pousse la nouvelle branche et la configure pour le suivi
+
+# Création et push du tag
+new_tag="v$new_full_version"
+echo "Création du tag Git: $new_tag sur la branche $release_branch_name"
+git tag "$new_tag"
+
+echo "Pousser le tag vers l'origine..."
+git push origin "$new_tag"
+
+echo ""
+echo "--------------------------------------------------------"
+echo "Succès ! Une nouvelle branche de release '$release_branch_name' a été créée et poussée."
+echo "Un tag '$new_tag' a également été créé et poussé."
+echo "Vous êtes maintenant sur la branche '$release_branch_name'."
+echo "N'oubliez pas de revenir à votre branche de développement après avoir fusionné la release."
+echo "Pour revenir à votre branche précédente (ex: dev) : git checkout $current_branch"
+echo "--------------------------------------------------------"
 
 echo "Script terminé avec succès."
