@@ -1,7 +1,7 @@
 name: neon_tactics
 description: "neon tactics app"
 publish_to: 'none'
-version: 0.1.2+20260310
+version: 0.2.0+20260310
 
 environment:
   sdk: ^3.10.7
