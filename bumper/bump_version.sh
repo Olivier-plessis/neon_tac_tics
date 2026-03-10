@@ -32,7 +32,7 @@ if [[ ! "$versionType" =~ ^(major|minor|patch|build)$ ]]; then
 fi
 
 # --- Extraction de la version actuelle ---
-PUBSPEC_PATH="pubspec.yaml" # Chemin vers pubspec.yaml
+PUBSPEC_PATH="pubspec.yaml" 
 
 # Vérifie si le fichier pubspec.yaml existe
 if [ ! -f "$PUBSPEC_PATH" ]; then
@@ -124,7 +124,7 @@ echo "La version a été mise à jour dans $PUBSPEC_PATH."
 current_branch=$(git rev-parse --abbrev-ref HEAD)
 
 # Nom de la nouvelle branche de release
-release_branch_name="release/v${new_full_version%%+*}" # Utilisez la version sans le build number pour le nom de la branche
+release_branch_name="releases/v${new_full_version%%+*}"
 
 echo "Ajout des modifications Git..."
 git add "$PUBSPEC_PATH" # N'ajoute que le fichier modifié
